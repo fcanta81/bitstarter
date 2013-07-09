@@ -24,6 +24,7 @@ References:
 var fs = require('fs');
 var program = require('commander');
 var cheerio = require('cheerio');
+var rst = require('restler');
 var HTMLFILE_DEFAULT = "index.html";
 var CHECKSFILE_DEFAULT = "checks.json";
 
@@ -36,8 +37,30 @@ var assertFileExists = function(infile) {
     return instr;
 };
 
+var assertURLExists = function(url){
+    var str = url.toString();
+    rst.get(str).on('complete', function(result) {
+        if (result instanceof Error) {
+	        console.log("%s cannot be found: %s", str, result.message);
+            process.exit(1);
+	    }
+        else {
+            runChecks(result);
+        } 
+    });
+    return str;
+}
+
 var cheerioHtmlFile = function(htmlfile) {
-    return cheerio.load(fs.readFileSync(htmlfile));
+    if(program.file) {
+        return cheerio.load(fs.readFileSync(htmlfile));
+    }
+    else if(program.url) {
+        return cheerio.load(htmlfile);
+    }
+    else { 
+	return; 
+    }
 };
 
 var loadChecks = function(checksfile) {
@@ -65,10 +88,20 @@ if(require.main == module) {
     program
         .option('-c, --checks <check_file>', 'Path to checks.json', clone(assertFileExists), CHECKSFILE_DEFAULT)
         .option('-f, --file <html_file>', 'Path to index.html', clone(assertFileExists), HTMLFILE_DEFAULT)
+        .option('-u, --url <url>', 'Url of index.html')
         .parse(process.argv);
-    var checkJson = checkHtmlFile(program.file, program.checks);
-    var outJson = JSON.stringify(checkJson, null, 4);
-    console.log(outJson);
+    if(program.file) {
+       var checkJson = checkHtmlFile(program.file, program.checks);
+       var outJson = JSON.stringify(checkJson, null, 4);
+       console.log(outJson);
+    }
+    else if(program.url){
+       assertURLExists(program.url);
+
+    }
+    else{
+        console.log("Syntax Error: command not correct!!!");
+    }
 } else {
     exports.checkHtmlFile = checkHtmlFile;
 }
